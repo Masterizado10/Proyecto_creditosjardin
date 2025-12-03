@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Lista de Clientes</h1>
+    <a href="/exportar_excel" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm">
+        <i class="fas fa-download fa-sm text-white-50"></i> Generar Reporte Excel
+    </a>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3 bg-white">
+        <h6 class="m-0 font-weight-bold text-primary">Cartera de Clientes Completa</h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle" width="100%" cellspacing="0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Cliente</th>
+                        <th>DNI</th>
+                        <th>Teléfono</th>
+                        <th>Dirección</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cliente in clientes %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <div class="avatar me-3">
+                                    <img src="{{ cliente.foto_perfil if cliente.foto_perfil else 'https://ui-avatars.com/api/?name=' + cliente.nombre + '&background=random&size=40' }}" 
+                                         class="rounded-circle" width="40" height="40" style="object-fit: cover;">
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">{{ cliente.nombre }}</div>
+                                    <div class="small text-muted">ID: {{ cliente.id }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ cliente.dni }}</td>
+                        <td>{{ cliente.telefono }}</td>
+                        <td>{{ cliente.direccion if cliente.direccion else '-' }}</td>
+                        <td>
+                            {% if cliente.estado == 'Activo' %}
+                                <span class="badge bg-success bg-opacity-10 text-success">Activo</span>
+                            {% elif cliente.estado == 'Finalizado' %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary">Finalizado</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning">Sin Crédito</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/clientes/{{ cliente.id }}" class="btn btn-sm btn-light text-primary" title="Ver Detalle">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">No hay clientes registrados aún.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

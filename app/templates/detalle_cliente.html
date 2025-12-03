@@ -91,13 +91,19 @@
             <div class="card mb-4 shadow-sm border-left-{{ 'success' if resumen.estado == 'Activo' else 'secondary' }}">
                 <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
                     <div>
-                        <h6 class="m-0 font-weight-bold text-primary">Crédito #{{ credito.id }} - {{ credito.fecha_inicio }}</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">Crédito #{{ credito.id }} | Del {{ credito.fecha_inicio }} al {{ resumen.fecha_final }}</h6>
                         <div class="mt-1">
                             <span class="badge bg-light text-dark border me-1" title="Monto Prestado">
                                 <i class="fas fa-money-bill-wave me-1 text-success"></i> ${{ "%.2f"|format(credito.monto_prestado) }}
                             </span>
+                            <span class="badge bg-light text-dark border me-1" title="Cuota por Periodo">
+                                <i class="fas fa-hand-holding-usd me-1 text-primary"></i> ${{ "%.2f"|format(credito.pago_semanal) }} / {{ credito.frecuencia }}
+                            </span>
                             <span class="badge bg-light text-dark border me-1" title="Frecuencia">
-                                <i class="fas fa-calendar-alt me-1 text-primary"></i> {{ credito.frecuencia }}
+                                <i class="fas fa-calendar-alt me-1 text-secondary"></i> {{ credito.frecuencia }}
+                            </span>
+                            <span class="badge bg-light text-dark border me-1" title="Costo Diario Estimado">
+                                <i class="fas fa-sun me-1 text-warning"></i> ${{ "%.2f"|format(resumen.costo_diario) }}/día
                             </span>
                             <span class="badge bg-light text-dark border" title="Plazo">
                                 <i class="fas fa-clock me-1 text-info"></i> {{ credito.semanas }} Semanas
@@ -166,6 +172,28 @@
                                 <div class="h4 mb-0 font-weight-bold {% if resumen.atraso > 0 %}text-danger{% else %}text-success{% endif %}" style="font-family: 'Poppins', sans-serif;">
                                     ${{ "%.2f"|format(resumen.atraso) }}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumen de Días -->
+                    <div class="row text-center mb-4">
+                        <div class="col-md-4 mb-2">
+                            <div class="p-2 bg-light rounded border h-100">
+                                <div class="text-xs font-weight-bold text-uppercase text-muted mb-1">Total Días</div>
+                                <div class="h5 mb-0 font-weight-bold text-dark">{{ resumen.cantidad_total_dias }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="p-2 bg-light rounded border h-100">
+                                <div class="text-xs font-weight-bold text-uppercase text-muted mb-1">Días Abonados</div>
+                                <div class="h5 mb-0 font-weight-bold text-success">{{ resumen.dias_abonados }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="p-2 bg-light rounded border h-100">
+                                <div class="text-xs font-weight-bold text-uppercase text-muted mb-1">Días Pendientes</div>
+                                <div class="h5 mb-0 font-weight-bold text-warning">{{ resumen.dias_pendientes }}</div>
                             </div>
                         </div>
                     </div>
@@ -374,11 +402,19 @@
     <div class="modal-dialog">
         <form action="/clientes/update" method="post" class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Editar Datos de Contacto</h5>
+                <h5 class="modal-title">Editar Datos del Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+                <div class="mb-3">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" name="nombre" class="form-control" value="{{ cliente.nombre }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">DNI</label>
+                    <input type="text" name="dni" class="form-control" value="{{ cliente.dni }}" required>
+                </div>
                 <div class="mb-3">
                     <label class="form-label">Teléfono</label>
                     <input type="text" name="telefono" class="form-control" value="{{ cliente.telefono }}">
@@ -505,6 +541,18 @@
         ]
     };
 
+    function cerrarPlanesModal() {
+        document.getElementById("contenedorPlanesModal").innerHTML = '<div class="col-12 text-center text-muted small py-3">Ingrese un monto para ver los planes disponibles.</div>';
+        document.getElementById("semanas_modal_seleccionadas").value = "";
+        document.getElementById("btnCrearCredito").disabled = true;
+    }
+
+    function cerrarPlanesEdicion(id) {
+        document.getElementById("contenedorPlanesEdit_" + id).innerHTML = '<div class="col-12 text-center text-muted small py-3">Ingrese un monto para ver los planes disponibles.</div>';
+        document.getElementById("semanas_edit_" + id).value = "";
+        document.getElementById("btnGuardarEdit_" + id).disabled = true;
+    }
+
     function renderizarPlanesModal() {
         const monto = parseFloat(document.getElementById("monto_modal").value) || 0;
         const frecuencia = document.getElementById("frecuencia_pago_modal").value;
@@ -520,6 +568,16 @@
             contenedor.innerHTML = '<div class="col-12 text-center text-muted small py-3">Ingrese un monto para ver los planes disponibles.</div>';
             return;
         }
+
+        // Header con botón cerrar
+        contenedor.innerHTML = `
+            <div class="col-12 d-flex justify-content-between align-items-center mb-2 sticky-top bg-white py-2" style="z-index: 10;">
+                <span class="small font-weight-bold text-primary"><i class="fas fa-list-ul"></i> Planes Disponibles</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cerrarPlanesModal()">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+            </div>
+        `;
 
         const opciones = planesModal[frecuencia];
         
@@ -569,13 +627,17 @@
     function seleccionarPlanModal(cardElement, label) {
         // Remover clase activa de todos
         document.querySelectorAll('.plan-card-modal').forEach(c => {
-            c.classList.remove('border-primary', 'bg-light');
-            c.classList.add('border-0');
+            c.classList.remove('border-success', 'bg-success', 'bg-opacity-10', 'shadow');
+            c.classList.add('border-0', 'shadow-sm', 'bg-white');
+            c.style.borderWidth = "1px";
+            c.style.transform = "scale(1)";
         });
         
         // Activar seleccionado
-        cardElement.classList.remove('border-0');
-        cardElement.classList.add('border-primary', 'bg-light');
+        cardElement.classList.remove('border-0', 'shadow-sm', 'bg-white');
+        cardElement.classList.add('border-success', 'bg-success', 'bg-opacity-10', 'shadow');
+        cardElement.style.borderWidth = "2px";
+        cardElement.style.transform = "scale(1.03)";
         
         // Guardar valor
         document.getElementById("semanas_modal_seleccionadas").value = label;
@@ -585,6 +647,14 @@
     // Inicializar cuando se abre el modal
     document.getElementById('newCreditModal').addEventListener('shown.bs.modal', function () {
         renderizarPlanesModal();
+    });
+
+    // Detectar Enter en el campo de monto para reabrir planes (Nuevo Crédito)
+    document.getElementById("monto_modal").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            renderizarPlanesModal();
+        }
     });
 
     // Funciones para Editar Crédito
@@ -603,6 +673,16 @@
             contenedor.innerHTML = '<div class="col-12 text-center text-muted small py-3">Ingrese un monto para ver los planes disponibles.</div>';
             return;
         }
+
+        // Header con botón cerrar
+        contenedor.innerHTML = `
+            <div class="col-12 d-flex justify-content-between align-items-center mb-2 sticky-top bg-white py-2" style="z-index: 10;">
+                <span class="small font-weight-bold text-primary"><i class="fas fa-list-ul"></i> Planes Disponibles</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="cerrarPlanesEdicion('${id}')">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+            </div>
+        `;
 
         const opciones = planesModal[frecuencia];
         
