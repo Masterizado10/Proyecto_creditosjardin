@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+    <a href="/exportar_excel" class="d-none d-sm-inline-block btn btn-sm btn-success shadow-sm">
+        <i class="fas fa-download fa-sm text-white-50"></i> Generar Reporte Excel
+    </a>
+</div>
+
+<!-- Content Row -->
+<div class="row">
+    <!-- Total Clientes -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-start-4 border-primary h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Clientes</div>
+                        <div class="h4 mb-0 font-weight-bold text-gray-800">{{ metrics.total_clientes }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="icon-circle bg-primary text-white p-3 rounded-circle">
+                            <i class="fas fa-users fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Prestado -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-start-4 border-success h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Prestado (Histórico)</div>
+                        <div class="h4 mb-0 font-weight-bold text-gray-800">${{ "%.2f"|format(metrics.total_prestado) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="icon-circle bg-success text-white p-3 rounded-circle">
+                            <i class="fas fa-dollar-sign fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Cobrado -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-start-4 border-info h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Cobrado (Histórico)</div>
+                        <div class="h4 mb-0 font-weight-bold text-gray-800">${{ "%.2f"|format(metrics.total_cobrado) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="icon-circle bg-info text-white p-3 rounded-circle">
+                            <i class="fas fa-clipboard-check fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Por Cobrar -->
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-start-4 border-warning h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col me-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Por Cobrar</div>
+                        <div class="h4 mb-0 font-weight-bold text-gray-800">${{ "%.2f"|format(metrics.por_cobrar) }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <div class="icon-circle bg-warning text-white p-3 rounded-circle">
+                            <i class="fas fa-hand-holding-usd fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if busqueda %}
+<div class="alert alert-info d-flex justify-content-between align-items-center mb-4 shadow-sm border-0">
+    <span><i class="fas fa-search me-2"></i> Resultados de búsqueda para: <strong>{{ busqueda }}</strong></span>
+    <a href="/" class="btn btn-sm btn-light text-info fw-bold">Limpiar Búsqueda</a>
+</div>
+{% endif %}
+
+<div class="row">
+    <!-- Tarjeta Registrar Cliente -->
+    <div class="col-xl-4 col-lg-5">
+        <div class="card mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between bg-white">
+                <h6 class="m-0 font-weight-bold text-primary">Registrar Nuevo Cliente</h6>
+            </div>
+            <div class="card-body">
+                <form action="/clientes/" method="post">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-user me-1"></i> Datos Personales</h6>
+                    <div class="mb-3">
+                        <input type="text" name="nombre" class="form-control bg-light border-0" placeholder="Nombre Completo" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <input type="text" name="dni" class="form-control bg-light border-0" placeholder="DNI" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <input type="text" name="telefono" class="form-control bg-light border-0" placeholder="Teléfono">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" name="direccion" class="form-control bg-light border-0" placeholder="Dirección Particular">
+                    </div>
+                    <div class="mb-3">
+                        <input type="text" name="lugar_trabajo" class="form-control bg-light border-0" placeholder="Lugar de Trabajo / Dirección Laboral">
+                    </div>
+
+                    <hr class="my-4">
+                    <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-money-bill-wave me-1"></i> Plan de Crédito</h6>
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">$</span>
+                            <input type="number" step="0.01" name="monto" id="monto" class="form-control bg-light border-0" required placeholder="Monto a Prestar" oninput="renderizarPlanes()">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small text-muted fw-bold">Frecuencia de Pago</label>
+                        <select name="frecuencia_pago" id="frecuencia_pago" class="form-select bg-light border-0" onchange="renderizarPlanes()">
+                            <option value="Semanal">Semanal</option>
+                            <option value="Quincenal">Quincenal</option>
+                            <option value="Mensual">Mensual</option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="semanas" id="semanas_seleccionadas" required>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2" id="btnGuardar" disabled>
+                        <i class="fas fa-save me-2"></i> Guardar Cliente
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Clientes -->
+    <div class="col-xl-8 col-lg-7">
+        
+        <!-- Sección Planes (Oculta por defecto) -->
+        <div id="seccionPlanes" class="card mb-4 shadow-sm" style="display: none;">
+            <div class="card-header py-3 bg-white border-bottom-success d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-success"><i class="fas fa-tasks me-2"></i>Planes Disponibles</h6>
+                <span class="badge bg-success bg-opacity-10 text-success">Seleccione una opción</span>
+            </div>
+            <div class="card-body bg-light">
+                <div id="contenedorPlanes" class="row g-3">
+                    <!-- Las tarjetas se generan aquí -->
+                </div>
+            </div>
+        </div>
+
+        <div id="seccionClientes" class="card mb-4">
+            <div class="card-header py-3 bg-white">
+                <h6 class="m-0 font-weight-bold text-primary">Cartera de Clientes</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" width="100%" cellspacing="0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Cliente</th>
+                                <th>DNI</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in clientes %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar me-2">
+                                            <img src="{{ cliente.foto_perfil if cliente.foto_perfil else 'https://ui-avatars.com/api/?name=' + cliente.nombre + '&background=random&size=32' }}" 
+                                                 class="rounded-circle" width="32" height="32" style="object-fit: cover;">
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold text-dark">{{ cliente.nombre }}</div>
+                                            <div class="small text-muted">ID: {{ cliente.id }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ cliente.dni }}</td>
+                                <td>{{ cliente.telefono }}</td>
+                                <td>
+                                    {% if cliente.estado == 'Activo' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success">Activo</span>
+                                    {% elif cliente.estado == 'Finalizado' %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">Finalizado</span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning">Sin Crédito</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/clientes/{{ cliente.id }}" class="btn btn-sm btn-light text-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No hay clientes registrados aún.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const planes = {
+        "Semanal": [
+            {label: "11", dias: 55, factor: 1.92},
+            {label: "14.2", dias: 72, factor: 2.16},
+            {label: "22", dias: 110, factor: 2.64},
+            {label: "32", dias: 160, factor: 2.88},
+            {label: "40", dias: 210, factor: 3.12},
+            {label: "48", dias: 240, factor: 3.375}
+        ],
+        "Quincenal": [
+            {label: "6", factor: 1.92}, {label: "7", factor: 2.16}, {label: "11", factor: 2.64}, 
+            {label: "16", factor: 2.88}, {label: "20", factor: 3.12}, {label: "24", factor: 3.375}
+        ],
+        "Mensual": [
+            {label: "4", factor: 2.16}, {label: "6", factor: 2.64}, {label: "8", factor: 2.88}, 
+            {label: "10", factor: 3.12}, {label: "12", factor: 3.375}
+        ]
+    };
+
+    function renderizarPlanes() {
+        const monto = parseFloat(document.getElementById("monto").value) || 0;
+        const frecuencia = document.getElementById("frecuencia_pago").value;
+        const contenedor = document.getElementById("contenedorPlanes");
+        const seccionPlanes = document.getElementById("seccionPlanes");
+        const seccionClientes = document.getElementById("seccionClientes");
+        const inputSemana = document.getElementById("semanas_seleccionadas");
+        const btnGuardar = document.getElementById("btnGuardar");
+        
+        contenedor.innerHTML = "";
+        inputSemana.value = ""; // Reset selection
+        btnGuardar.disabled = true;
+
+        if (monto <= 0) {
+            seccionPlanes.style.display = "none";
+            seccionClientes.style.display = "block";
+            return;
+        }
+
+        // Mostrar planes y ocultar clientes
+        seccionPlanes.style.display = "block";
+        seccionClientes.style.display = "none";
+
+        const opciones = planes[frecuencia];
+        
+        opciones.forEach(data => {
+            const label = data.label;
+            const factor = data.factor;
+            const total = monto * factor;
+            let cuota = 0;
+            let diario = 0;
+            
+            if (frecuencia === "Semanal" && data.dias) {
+                diario = total / data.dias;
+                cuota = diario * 5;
+            } else {
+                const plazoVal = parseFloat(label);
+                cuota = total / plazoVal;
+                const diasEstimados = (frecuencia === "Quincenal" ? 10 : 20); 
+                diario = cuota / diasEstimados;
+            }
+
+            // Crear tarjeta
+            const col = document.createElement("div");
+            col.className = "col-md-4 col-sm-6"; // 3 por fila en pantallas medianas
+            
+            const card = document.createElement("div");
+            card.className = "card h-100 border-0 shadow-sm plan-card cursor-pointer";
+            card.style.cursor = "pointer";
+            card.style.transition = "all 0.2s";
+            card.onclick = function() { seleccionarPlan(this, label); };
+            
+            card.innerHTML = `
+                <div class="card-body p-3 text-center">
+                    <div class="small font-weight-bold text-primary mb-1">${label} ${frecuencia === 'Mensual' ? 'Meses' : (frecuencia === 'Quincenal' ? 'Quincenas' : 'Semanas')}</div>
+                    <div class="h4 mb-0 font-weight-bold text-dark">$${cuota.toFixed(2)}</div>
+                    <div class="text-xs text-muted">Cuota ${frecuencia}</div>
+                    <div class="text-xs text-muted mt-2 p-1 bg-light rounded">Diario: <strong>$${diario.toFixed(2)}</strong></div>
+                    <hr class="my-2">
+                    <div class="text-sm text-success font-weight-bold">Total: $${total.toFixed(2)}</div>
+                </div>
+            `;
+            
+            col.appendChild(card);
+            contenedor.appendChild(col);
+        });
+    }
+
+    function seleccionarPlan(cardElement, label) {
+        // Remover clase activa de todos
+        document.querySelectorAll('.plan-card').forEach(c => {
+            c.classList.remove('border-success', 'bg-success', 'bg-opacity-10', 'shadow');
+            c.classList.add('border-0', 'shadow-sm', 'bg-white');
+            c.style.borderWidth = "1px";
+            c.style.transform = "scale(1)";
+        });
+        
+        // Activar seleccionado
+        cardElement.classList.remove('border-0', 'shadow-sm', 'bg-white');
+        cardElement.classList.add('border-success', 'bg-success', 'bg-opacity-10', 'shadow');
+        cardElement.style.borderWidth = "2px";
+        cardElement.style.transform = "scale(1.03)";
+        
+        // Guardar valor
+        document.getElementById("semanas_seleccionadas").value = label;
+        document.getElementById("btnGuardar").disabled = false;
+    }
+
+    // Inicializar
+    document.addEventListener("DOMContentLoaded", function() {
+        renderizarPlanes();
+    });
+</script>
+{% endblock %}

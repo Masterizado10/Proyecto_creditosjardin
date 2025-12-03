@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créditos Jardín | Panel de Control</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    
+    <style>
+        /* Overrides handled in custom.css */
+    </style>
+</head>
+<body>
+    <div class="d-flex" id="wrapper">
+        <!-- Sidebar -->
+        <div id="sidebar-wrapper">
+            <div class="sidebar-heading">
+                <i class="fas fa-leaf me-2"></i> Créditos Jardín
+            </div>
+            <div class="list-group list-group-flush my-3">
+                <a href="/" class="list-group-item list-group-item-action active">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="/" class="list-group-item list-group-item-action">
+                    <i class="fas fa-users"></i> Clientes
+                </a>
+                <a href="/exportar_excel" class="list-group-item list-group-item-action">
+                    <i class="fas fa-file-invoice-dollar"></i> Reportes
+                </a>
+                <a href="#" class="list-group-item list-group-item-action">
+                    <i class="fas fa-sliders-h"></i> Configuración
+                </a>
+            </div>
+        </div>
+        <!-- /#sidebar-wrapper -->
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper">
+            <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
+                <div class="container-fluid">
+                    <button class="btn btn-link text-primary" id="menu-toggle"><i class="fas fa-bars"></i></button>
+                    
+                    <!-- Dynamic Welcome Message -->
+                    <div class="d-none d-md-block ms-3 text-gray-600 small fst-italic">
+                        {{ frase_bienvenida if frase_bienvenida else "Bienvenido al Sistema" }}
+                    </div>
+
+                    <!-- Topbar Search -->
+                    <form class="d-none d-sm-inline-block form-inline ms-auto me-0 me-md-3 my-2 my-md-0 mw-100 navbar-search" action="/buscar" method="get">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control bg-light border-0 small" placeholder="Buscar por nombre o DNI..." aria-label="Search" aria-describedby="basic-addon2">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-search fa-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="me-2 d-none d-lg-inline text-gray-600 small">Administrador</span>
+                                <img class="img-profile rounded-circle" src="/static/uploads/admin_avatar.jpg" onerror="this.src='https://ui-avatars.com/api/?name=Admin&background=random'" style="width: 30px; height: 30px;">
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#adminPhotoModal">Cambiar Foto</a>
+                                <a class="dropdown-item" href="#">Configuración</a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="#">Salir</a>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <div class="container-fluid px-4">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+        <!-- /#page-content-wrapper -->
+    </div>
+    <!-- /#wrapper -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var el = document.getElementById("wrapper");
+        var toggleButton = document.getElementById("menu-toggle");
+
+        toggleButton.onclick = function () {
+            el.classList.toggle("toggled");
+            var sidebar = document.getElementById("sidebar-wrapper");
+            if (sidebar.style.marginLeft === "-250px") {
+                sidebar.style.marginLeft = "0";
+            } else {
+                sidebar.style.marginLeft = "-250px";
+            }
+        };
+    </script>
+
+    <!-- Modal Foto Admin -->
+    <div class="modal fade" id="adminPhotoModal" tabindex="-1">
+        <div class="modal-dialog">
+            <form action="/admin/foto" method="post" enctype="multipart/form-data" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cambiar Foto de Administrador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Imagen</label>
+                        <input type="file" name="file" class="form-control" accept="image/*" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Subir Foto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
