@@ -38,9 +38,13 @@ def parse_date(date_val):
     return None
 
 def clean_money(val):
-    """Extrae un valor monetario de una cadena sucia."""
+    """Extrae un valor monetario de una cadena sucia, evitando concatenar números de texto."""
     if pd.isna(val):
         return 0.0
+    
+    # Si ya es número, devolverlo directamente
+    if isinstance(val, (int, float)):
+        return float(val)
     
     s = str(val).strip()
     
@@ -48,7 +52,7 @@ def clean_money(val):
     if '*' in s:
         parts = s.split('*')
         try:
-            # Intentar multiplicar los dos números
+            # Limpiar cada parte individualmente
             p1 = clean_money(parts[0])
             p2 = clean_money(parts[1])
             if p1 > 0 and p2 > 0:
@@ -56,20 +60,89 @@ def clean_money(val):
         except:
             pass
 
+    # Si hay signo $, tomar lo que sigue
     if '$' in s:
         s = s.split('$')[1]
     
-    s_clean = re.sub(r'[^\d.,]', '', s)
-    
-    if not s_clean:
-        return 0.0
-    
+    # Intentar conversión directa primero (maneja "540000.0" correctamente)
     try:
-        # Asumir que . y , son separadores de miles si el número es grande
-        s_final = s_clean.replace('.', '').replace(',', '')
-        return float(s_final)
+        # Eliminar espacios y símbolos de moneda comunes antes de intentar
+        clean_s = s.replace('$', '').replace(' ', '')
+        return float(clean_s)
     except:
+        pass
+
+    # Estrategia: Buscar todas las secuencias numéricas posibles
+    matches = re.findall(r'[\d]+[.,\d]*', s)
+    
+    if not matches:
         return 0.0
+    
+    candidates = []
+    for m in matches:
+        try:
+            # Heurística para detectar separadores
+            # Si tiene punto y coma, el último es el decimal
+            clean_m = m
+            if '.' in m and ',' in m:
+                if m.rfind('.') > m.rfind(','): # Estilo US: 1,000.00
+                    clean_m = m.replace(',', '')
+                else: # Estilo AR/EU: 1.000,00
+                    clean_m = m.replace('.', '').replace(',', '.')
+            elif '.' in m:
+                # Solo puntos. 
+                # Si el punto está seguido de 3 dígitos exactos, asumimos miles (ej: 100.000)
+                # Si no, asumimos decimal (ej: 540000.0 o 10.5)
+                parts = m.split('.')
+                if len(parts) > 1 and len(parts[-1]) == 3:
+                    clean_m = m.replace('.', '')
+                else:
+                    clean_m = m # Dejar el punto como decimal
+            elif ',' in m:
+                # Solo comas.
+                # Si la coma está seguida de 3 dígitos, asumimos miles (ej: 100,000)
+                # Si no, asumimos decimal (ej: 10,5)
+                parts = m.split(',')
+                if len(parts) > 1 and len(parts[-1]) == 3:
+                    clean_m = m.replace(',', '')
+                else:
+                    clean_m = m.replace(',', '.')
+            
+            val_float = float(clean_m)
+            candidates.append(val_float)
+        except:
+            continue
+            
+    if not candidates:
+        return 0.0
+        
+    return max(candidates)
+
+def extract_phone(domicilio_str):
+    """Intenta extraer un número de teléfono del campo domicilio."""
+    if pd.isna(domicilio_str):
+        return "Sin registrar"
+    
+    s = str(domicilio_str)
+    
+    # Buscar patrones comunes de teléfono (Cel, Tel, o secuencias largas de números)
+    # Regex para capturar números de 7 a 15 dígitos, permitiendo espacios o guiones
+    # Ignoramos números cortos que podrían ser altura de calle
+    
+    # 1. Buscar explícitamente etiquetas
+    phone_match = re.search(r'(?:cel|tel|wsp|movil|fijo)[:\.\s-]*([\d\s-]{6,})', s, re.IGNORECASE)
+    if phone_match:
+        return phone_match.group(1).strip()
+    
+    # 2. Si no hay etiqueta, buscar secuencia de números larga (ej: 351-1234567)
+    # Excluir si parece ser una dirección (ej: "San Martin 1234")
+    # Buscamos algo que tenga al menos 8 dígitos
+    digits_match = re.findall(r'\b\d[\d\s-]{7,}\d\b', s)
+    if digits_match:
+        # Retornar el último encontrado (a veces la dirección tiene números largos, pero el tel suele ir al final)
+        return digits_match[-1].strip()
+        
+    return "Sin registrar"
 
 def parse_plan_details(plan_str, monto_devolver_excel):
     """
@@ -91,12 +164,15 @@ def parse_plan_details(plan_str, monto_devolver_excel):
     if '*' in s:
         parts = s.split('*')
         try:
-            dias = float(parts[0].replace(',', '.'))
-            diario = float(parts[1].replace(',', '.').replace('$','')) # Limpieza básica
+            # Usar clean_money para las partes para ser robusto
+            dias = clean_money(parts[0])
+            diario = clean_money(parts[1])
             
             # Recalcular total si el Excel estaba vacío o mal
-            if total == 0:
-                total = dias * diario
+            # Prioridad: Si hay multiplicación, ese es el total real pactado
+            total_calculado = dias * diario
+            if total_calculado > 0:
+                total = total_calculado
             
             # Convertir Días a Semanas (Divisor 5)
             semanas = dias / 5
@@ -106,16 +182,18 @@ def parse_plan_details(plan_str, monto_devolver_excel):
             pass
 
     # Extraer número del plan
+    # Usamos clean_money para sacar el número "4" de "4 meses" de forma segura
+    # Pero clean_money busca el mayor, aquí queremos el número asociado a la palabra
     match = re.search(r'(\d+[\.,]?\d*)', s)
     if match:
         num = float(match.group(1).replace(',', '.'))
         
         if 'mes' in s:
-            # 1 Mes = 4 Semanas
+            # 1 Mes = 4 Semanas (20 días hábiles / 5)
             semanas = num * 4
             frecuencia = "Mensual"
         elif 'quin' in s or 'q.' in s:
-            # 1 Quincena = 2 Semanas
+            # 1 Quincena = 2 Semanas (10 días hábiles / 5)
             semanas = num * 2
             frecuencia = "Quincenal"
         else:
@@ -176,8 +254,13 @@ def import_excel(file_path):
             # 1. Cliente
             nombre = str(row.get('Nombre y Apellido', '')).strip()
             dni = str(row.get('D.N.I', '')).strip()
-            domicilio = str(row.get('Domicilio part. y laboral', '')).strip()
+            domicilio_raw = str(row.get('Domicilio part. y laboral', '')).strip()
             
+            # Extraer teléfono del domicilio
+            telefono = extract_phone(domicilio_raw)
+            # Limpiar domicilio quitando el teléfono si es posible (opcional, por ahora lo dejamos completo)
+            domicilio = domicilio_raw
+
             if not nombre or nombre.lower() == 'nan':
                 continue
             
@@ -194,13 +277,18 @@ def import_excel(file_path):
                     nombre=nombre,
                     dni=dni,
                     direccion=domicilio,
-                    telefono="Sin registrar",
+                    telefono=telefono,
                     fecha_registro=datetime.date.today()
                 )
                 db.add(cliente)
                 db.commit()
                 db.refresh(cliente)
                 count_clientes += 1
+            else:
+                # Actualizar teléfono si no tenía
+                if cliente.telefono == "Sin registrar" and telefono != "Sin registrar":
+                    cliente.telefono = telefono
+                    db.commit()
             
             # 2. Crédito
             try:
