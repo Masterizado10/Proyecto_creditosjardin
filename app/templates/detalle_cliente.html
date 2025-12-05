@@ -2,7 +2,18 @@
 
 {% block content %}
 <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Detalle del Cliente</h1>
+    <h1 class="h3 mb-0 text-gray-800">
+        Detalle del Cliente
+        {% if creditos_activos > 0 %}
+        <span class="badge bg-success shadow-sm ms-2" style="font-size: 0.6em; vertical-align: middle;">
+            <i class="fas fa-check-circle me-1"></i> {{ creditos_activos }} Activo{{ 's' if creditos_activos > 1 else '' }}
+        </span>
+        {% else %}
+        <span class="badge bg-secondary shadow-sm ms-2" style="font-size: 0.6em; vertical-align: middle;">
+            Sin Créditos Activos
+        </span>
+        {% endif %}
+    </h1>
     <a href="/" class="btn btn-sm btn-secondary shadow-sm">
         <i class="fas fa-arrow-left fa-sm text-white-50"></i> Volver al Listado
     </a>
@@ -118,6 +129,9 @@
                         </div>
                     </div>
                     <div class="d-flex align-items-center">
+                        <a href="/creditos/{{ credito.id }}/ficha_pago" class="btn btn-sm btn-outline-dark me-2" target="_blank">
+                            <i class="fas fa-file-invoice me-1"></i> Ficha
+                        </a>
                         <a href="/creditos/{{ credito.id }}/estado_cuenta" class="btn btn-sm btn-outline-primary me-2" target="_blank">
                             <i class="fas fa-print me-1"></i> Estado
                         </a>

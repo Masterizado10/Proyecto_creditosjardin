@@ -515,10 +515,14 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
 
     notas = db.query(models.Nota).filter(models.Nota.cliente_id == cliente_id).order_by(models.Nota.fecha.desc()).all()
 
+    # Calcular créditos activos
+    creditos_activos = sum(1 for c in creditos_data if c["resumen"]["estado"] == "Activo")
+
     return templates.TemplateResponse("detalle_cliente.html", {
         "request": request, 
         "cliente": cliente, 
         "creditos_data": creditos_data, # Lista de créditos
+        "creditos_activos": creditos_activos,
         "notas": notas,
         "hoy": date.today(),
         "frase_bienvenida": get_frase()
@@ -834,6 +838,67 @@ def descargar_recibo(pago_id: int, db: Session = Depends(database.get_db)):
         'Content-Disposition': f'attachment; filename="recibo_{pago_id}.pdf"'
     }
     return StreamingResponse(buffer, media_type='application/pdf', headers=headers)
+
+@app.get("/creditos/{credito_id}/ficha_pago", response_class=HTMLResponse)
+def ficha_pago(credito_id: int, request: Request, db: Session = Depends(database.get_db)):
+    credito = db.query(models.Credito).filter(models.Credito.id == credito_id).first()
+    if not credito:
+        raise HTTPException(status_code=404, detail="Crédito no encontrado")
+    
+    cliente = credito.cliente
+    
+    # Calcular cantidad de cuotas
+    num_cuotas = 0
+    if credito.frecuencia == "Semanal":
+        num_cuotas = int(credito.semanas)
+    elif credito.frecuencia == "Quincenal":
+        num_cuotas = int(credito.semanas / 2)
+    elif credito.frecuencia == "Mensual":
+        num_cuotas = int(credito.semanas / 4)
+    elif credito.frecuencia == "Unico":
+        num_cuotas = 1
+    
+    # Fallback si es 0
+    if num_cuotas < 1: num_cuotas = 1
+    
+    # Calcular monto por cuota real
+    monto_cuota = credito.pago_semanal
+    if credito.frecuencia == "Quincenal":
+        monto_cuota = credito.pago_semanal * 2
+    elif credito.frecuencia == "Mensual":
+        monto_cuota = credito.pago_semanal * 4
+    
+    # Generar lista de cuotas
+    cuotas = list(range(1, num_cuotas + 1))
+    
+    # Dividir en 3 columnas
+    import math
+    num_cols = 3
+    rows_per_col = math.ceil(num_cuotas / num_cols)
+    
+    # Asegurar un mínimo de filas para que se vea bien (ej: 15)
+    if rows_per_col < 15: rows_per_col = 15
+    
+    cuotas_split = []
+    for i in range(num_cols):
+        start = i * rows_per_col
+        end = start + rows_per_col
+        col = cuotas[start:end]
+        cuotas_split.append(col)
+        
+    fecha_final = credito.fecha_inicio + timedelta(weeks=credito.semanas)
+
+    return templates.TemplateResponse("ficha_pago.html", {
+        "request": request,
+        "credito": credito,
+        "cliente": cliente,
+        "num_cuotas": num_cuotas,
+        "monto_cuota": monto_cuota,
+        "cuotas_split": cuotas_split,
+        "max_rows": rows_per_col,
+        "fecha_final": fecha_final,
+        "hoy": date.today().strftime('%d/%m/%Y')
+    })
 
 @app.get("/creditos/{credito_id}/estado_cuenta")
 def descargar_estado_cuenta(credito_id: int, db: Session = Depends(database.get_db)):

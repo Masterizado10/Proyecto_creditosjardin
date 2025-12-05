@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ficha de Pago - {{ cliente.nombre }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 11px;
+            background-color: #f5f5f5;
+            color: #000;
+        }
+        .container-ficha {
+            max-width: 210mm; /* A4 width */
+            margin: 20px auto;
+            background-color: white;
+            border: 2px solid #000;
+            padding: 0;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .info-row {
+            display: flex;
+            border-bottom: 1px solid #000;
+        }
+        .info-cell {
+            padding: 6px 10px;
+            border-right: 1px solid #000;
+            display: flex;
+            align-items: center;
+        }
+        .info-cell:last-child {
+            border-right: none;
+        }
+        .label {
+            font-weight: bold;
+            margin-right: 5px;
+            text-transform: uppercase;
+            font-size: 10px;
+            color: #333;
+        }
+        .value {
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .grid-container {
+            display: flex;
+            width: 100%;
+        }
+        .grid-column {
+            flex: 1;
+            border-right: 2px solid #000;
+        }
+        .grid-column:last-child {
+            border-right: none;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border-bottom: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            padding: 4px;
+            text-align: center;
+            height: 24px;
+        }
+        th:last-child, td:last-child {
+            border-right: none;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #000;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        /* Header Styles */
+        .header-title {
+            background-color: #e0e0e0;
+            font-weight: bold;
+            text-align: center;
+            justify-content: center;
+        }
+        .highlight-cell {
+            background-color: #fff3cd;
+        }
+
+        @media print {
+            body { 
+                background-color: white; 
+                margin: 0;
+                -webkit-print-color-adjust: exact; 
+            }
+            .container-ficha { 
+                border: 2px solid #000; 
+                margin: 0; 
+                width: 100%; 
+                max-width: 100%; 
+                box-shadow: none;
+            }
+            .no-print { display: none; }
+            @page {
+                margin: 0.5cm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="text-center no-print my-3">
+        <button onclick="window.print()" class="btn btn-primary shadow-sm"><i class="fas fa-print me-2"></i>Imprimir Ficha</button>
+        <button onclick="window.close()" class="btn btn-secondary shadow-sm ms-2">Cerrar</button>
+    </div>
+
+    <div class="container-ficha">
+        <!-- Header Info -->
+        <div class="info-row" style="border-bottom: 2px solid #000;">
+            <div class="info-cell" style="flex: 3;">
+                <span class="label">Cliente:</span> <span class="value">{{ cliente.nombre }}</span>
+            </div>
+            <div class="info-cell" style="flex: 2;">
+                <span class="label">Plan:</span> <span class="value">{{ num_cuotas }} x ${{ "%.0f"|format(monto_cuota) }} ({{ credito.frecuencia }})</span>
+            </div>
+            <div class="info-cell header-title" style="flex: 1.5; border-left: 2px solid #000;">
+                CREDITO JARDIN
+            </div>
+        </div>
+        
+        <div class="info-row" style="border-bottom: 2px solid #000;">
+            <div class="info-cell" style="flex: 1;">
+                <span class="label">ID Cliente:</span> <span class="value">{{ cliente.id }}</span>
+            </div>
+            <div class="info-cell" style="flex: 1;">
+                <span class="label">ID Crédito:</span> <span class="value">{{ credito.id }}</span>
+            </div>
+            <div class="info-cell" style="flex: 1.5;">
+                <span class="label">Emisión:</span> <span class="value">{{ credito.fecha_inicio.strftime('%d/%m/%Y') }}</span>
+            </div>
+            <div class="info-cell" style="flex: 1.5;">
+                <span class="label">Vencimiento:</span> <span class="value">{{ fecha_final.strftime('%d/%m/%Y') }}</span>
+            </div>
+            <div class="info-cell highlight-cell" style="flex: 2; border-left: 2px solid #000;">
+                <span class="label">Tel:</span> <span class="value">{{ cliente.telefono }}</span>
+            </div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid-container">
+            {% for col_cuotas in cuotas_split %}
+            <div class="grid-column">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 10%;">#</th>
+                            <th style="width: 30%;">FECHA</th>
+                            <th style="width: 30%;">ENTREGA</th>
+                            <th style="width: 30%;">FIRMA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in col_cuotas %}
+                        <tr>
+                            <td style="font-weight: bold; color: #555;">{{ i }}</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        {% endfor %}
+                        
+                        <!-- Rellenar filas vacías para que las columnas tengan el mismo alto -->
+                        {% if col_cuotas|length < max_rows %}
+                            {% for _ in range(max_rows - col_cuotas|length) %}
+                            <tr>
+                                <td>&nbsp;</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Footer -->
+        <div class="info-row" style="border-top: 2px solid #000; padding: 10px; justify-content: space-between;">
+            <div style="font-size: 10px; color: #666;">
+                Documento generado el {{ hoy }}
+            </div>
+            <div style="font-size: 10px; font-weight: bold;">
+                TOTAL A PAGAR: ${{ "%.2f"|format(credito.monto_total) }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- FontAwesome for print button icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</body>
+</html>
