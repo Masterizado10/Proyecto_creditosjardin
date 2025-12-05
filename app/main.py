@@ -78,7 +78,7 @@ def get_frase():
 
 @app.get("/", response_class=HTMLResponse)
 def read_root(request: Request, db: Session = Depends(database.get_db)):
-    clientes_db = db.query(models.Cliente).all()
+    clientes_db = db.query(models.Cliente).order_by(models.Cliente.nombre).all()
     
     clientes_con_estado = []
     for c in clientes_db:
@@ -134,7 +134,7 @@ def buscar_cliente(q: str, request: Request, db: Session = Depends(database.get_
             models.Cliente.nombre.ilike(f"%{q}%"),
             models.Cliente.dni.ilike(f"%{q}%")
         )
-    ).all()
+    ).order_by(models.Cliente.nombre).all()
     
     clientes_con_estado = []
     for c in clientes_db:
@@ -178,7 +178,7 @@ def buscar_cliente(q: str, request: Request, db: Session = Depends(database.get_
 
 @app.get("/lista_clientes", response_class=HTMLResponse)
 def lista_clientes(request: Request, db: Session = Depends(database.get_db)):
-    clientes_db = db.query(models.Cliente).all()
+    clientes_db = db.query(models.Cliente).order_by(models.Cliente.nombre).all()
     
     clientes_con_estado = []
     for c in clientes_db:
@@ -400,6 +400,11 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
         elif credito.frecuencia == "Quincenal":
             dias_habiles_periodo = 10
             cuota_periodo = credito.pago_semanal * 2
+        elif credito.frecuencia == "Unico":
+            # Caso especial: Pago único al final
+            # No hay cuotas periódicas esperadas hasta el vencimiento
+            dias_habiles_periodo = 99999 
+            cuota_periodo = 0
             
         # Calcular periodos completos transcurridos
         periodos = dias_habiles_transcurridos // dias_habiles_periodo
@@ -413,6 +418,8 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
              proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(days=(periodos + 1) * 30)
         elif credito.frecuencia == "Quincenal":
              proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(days=(periodos + 1) * 15)
+        elif credito.frecuencia == "Unico":
+             proximo_vencimiento_calculado = fecha_final
         else:
              proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(weeks=periodos + 1)
         

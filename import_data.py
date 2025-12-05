@@ -160,6 +160,11 @@ def parse_plan_details(plan_str, monto_devolver_excel):
     total = float(monto_devolver_excel) # Por defecto confiamos en la columna 'Monto Devolver'
     frecuencia = "Semanal"
 
+    # Caso Especial: "1 pago" (Pago Único)
+    if "1 pago" in s or "un pago" in s:
+        # Retornamos 0 semanas para indicar que se debe calcular por fechas
+        return 0, total, "Unico"
+
     # Caso 1: Multiplicación explícita (ej: "110*19200") -> 110 Días * $19200 Diarios
     if '*' in s:
         parts = s.split('*')
@@ -171,8 +176,20 @@ def parse_plan_details(plan_str, monto_devolver_excel):
             # Recalcular total si el Excel estaba vacío o mal
             # Prioridad: Si hay multiplicación, ese es el total real pactado
             total_calculado = dias * diario
+            
+            # VALIDACIÓN DE SEGURIDAD:
+            # Si el total calculado es diferente al 'Monto Devolver' del Excel (ej: > 10% diff),
+            # y el monto del Excel no es cero, confiamos en el Excel.
+            # Esto corrige casos ambiguos como "160*36000" donde 36000 es semanal y no diario.
             if total_calculado > 0:
-                total = total_calculado
+                if total > 0 and abs(total_calculado - total) > (total * 0.1):
+                    print(f"⚠️ Discrepancia en Plan '{s}': Calc={total_calculado} vs Excel={total}. Usando Excel.")
+                    # Si usamos el total del Excel, debemos ajustar las semanas para que el pago semanal tenga sentido
+                    # O simplemente dejar el total del Excel.
+                    # Si asumimos que el Excel es correcto, recalculamos semanas si es necesario?
+                    # No, las semanas siguen siendo dias/5.
+                else:
+                    total = total_calculado
             
             # Convertir Días a Semanas (Divisor 5)
             semanas = dias / 5
@@ -318,10 +335,24 @@ def import_excel(file_path):
             try:
                 monto_prestado = clean_money(row.get('Capital', 0))
                 monto_devolver_excel = clean_money(row.get('Monto Devolver', 0))
+                fecha_inicio = parse_date(row.get('Fecha Inicio del credito'))
+                if not fecha_inicio:
+                    fecha_inicio = datetime.date.today()
                 
+                # Intentar leer fecha final para cálculos precisos
+                fecha_final_excel = parse_date(row.get('Fecha Final del credito'))
+
                 # Calcular Semanas y Total usando lógica de Días Hábiles
                 plan_str = str(row.get('Plan. Pagos', ''))
                 semanas, monto_total, frecuencia = parse_plan_details(plan_str, monto_devolver_excel)
+                
+                # Si es "Unico" (1 pago), calcular semanas reales basadas en fechas
+                if frecuencia == "Unico":
+                    if fecha_final_excel and fecha_final_excel > fecha_inicio:
+                        dias_totales = (fecha_final_excel - fecha_inicio).days
+                        semanas = dias_totales / 7.0
+                    else:
+                        semanas = 4.0 # Default 1 mes si no hay fecha final
                 
                 # Si el total calculado es 0, usar el prestado
                 if monto_total == 0:
@@ -334,10 +365,6 @@ def import_excel(file_path):
                     pago_semanal = monto_total / semanas
                 else:
                     pago_semanal = 0
-
-                fecha_inicio = parse_date(row.get('Fecha Inicio del credito'))
-                if not fecha_inicio:
-                    fecha_inicio = datetime.date.today()
 
                 cto_num = str(row.get('CTO.', ''))
 
