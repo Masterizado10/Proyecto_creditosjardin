@@ -256,6 +256,12 @@ def import_excel(file_path):
             dni = str(row.get('D.N.I', '')).strip()
             domicilio_raw = str(row.get('Domicilio part. y laboral', '')).strip()
             
+            # VALIDACIÓN EXTRA: Si 'Pendiente $$$' es NaN, es probable que sea una fila de totales o basura
+            pendiente_check = row.get('Pendiente $$$')
+            if pd.isna(pendiente_check):
+                print(f"⚠️ Saltando fila {index+2} ({nombre}) - Columna 'Pendiente $$$' vacía (posible total o basura).")
+                continue
+
             # Extraer teléfono del domicilio
             telefono = extract_phone(domicilio_raw)
             # Limpiar domicilio quitando el teléfono si es posible (opcional, por ahora lo dejamos completo)
@@ -268,8 +274,26 @@ def import_excel(file_path):
                 dni = f"S/D-{index}" # Generar DNI temporal si falta
 
             # Buscar o Crear Cliente
-            cliente = db.query(Cliente).filter(Cliente.dni == dni).first()
-            if not cliente:
+            # Lógica mejorada para detectar duplicados de DNI con diferente nombre
+            cliente_existente = db.query(Cliente).filter(Cliente.dni == dni).first()
+            
+            if cliente_existente:
+                # Si el DNI existe, verificar si el nombre coincide (fuzzy match simple)
+                # Si los nombres son muy diferentes, es un conflicto de DNI (dos personas con mismo DNI en Excel)
+                nombre_existente = cliente_existente.nombre.lower()
+                nombre_nuevo = nombre.lower()
+                
+                # Verificar si es la misma persona (ej: "Juan Perez" vs "Juan A. Perez")
+                # Si NO es la misma persona, generamos un DNI alternativo para el nuevo
+                if nombre_nuevo not in nombre_existente and nombre_existente not in nombre_nuevo:
+                    print(f"⚠️ CONFLICTO DNI DETECTADO: DNI {dni} pertenece a '{cliente_existente.nombre}', pero ahora viene '{nombre}'.")
+                    print(f"   -> Generando DNI alternativo para '{nombre}' para permitir importación.")
+                    dni = f"{dni}-{index}" # DNI único para evitar crash
+                    cliente = None # Forzar creación de nuevo cliente
+                else:
+                    cliente = cliente_existente
+            else:
+                # Si no existe por DNI, buscar por nombre (por si cambió el DNI)
                 cliente = db.query(Cliente).filter(Cliente.nombre == nombre).first()
                 
             if not cliente:

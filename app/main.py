@@ -129,19 +129,42 @@ def read_root(request: Request, db: Session = Depends(database.get_db)):
 
 @app.get("/buscar", response_class=HTMLResponse)
 def buscar_cliente(q: str, request: Request, db: Session = Depends(database.get_db)):
-    clientes = db.query(models.Cliente).filter(
+    clientes_db = db.query(models.Cliente).filter(
         or_(
             models.Cliente.nombre.ilike(f"%{q}%"),
             models.Cliente.dni.ilike(f"%{q}%")
         )
     ).all()
     
+    clientes_con_estado = []
+    for c in clientes_db:
+        # Verificar si tiene ALGUN crédito activo
+        creditos_activos = db.query(models.Credito).filter(models.Credito.cliente_id == c.id, models.Credito.activo == True).all()
+        
+        estado = "Sin Crédito"
+        if creditos_activos:
+            estado = "Activo"
+        
+        clientes_con_estado.append({
+            "id": c.id,
+            "nombre": c.nombre,
+            "dni": c.dni,
+            "telefono": c.telefono,
+            "foto_perfil": c.foto_perfil,
+            "estado": estado
+        })
+    
     # Recalcular métricas (o pasar vacías si no queremos mostrarlas en búsqueda)
     # Para consistencia visual, pasamos las mismas métricas globales
     total_clientes = db.query(models.Cliente).count()
     total_prestado_historico = db.query(models.Credito).with_entities(func.sum(models.Credito.monto_prestado)).scalar() or 0
     total_cobrado_historico = db.query(models.Pago).with_entities(func.sum(models.Pago.monto)).scalar() or 0
-    total_a_cobrar = db.query(models.Credito).with_entities(func.sum(models.Credito.monto_total)).scalar() or 0
+    
+    # Total a cobrar incluye recargos
+    total_monto_original = db.query(models.Credito).with_entities(func.sum(models.Credito.monto_total)).scalar() or 0
+    total_recargos = db.query(models.Credito).with_entities(func.sum(models.Credito.recargos)).scalar() or 0
+    total_a_cobrar = total_monto_original + total_recargos
+    
     por_cobrar = total_a_cobrar - total_cobrado_historico
     
     metrics = {
@@ -151,7 +174,7 @@ def buscar_cliente(q: str, request: Request, db: Session = Depends(database.get_
         "por_cobrar": por_cobrar
     }
 
-    return templates.TemplateResponse("index.html", {"request": request, "clientes": clientes, "metrics": metrics, "busqueda": q})
+    return templates.TemplateResponse("index.html", {"request": request, "clientes": clientes_con_estado, "metrics": metrics, "busqueda": q})
 
 @app.get("/lista_clientes", response_class=HTMLResponse)
 def lista_clientes(request: Request, db: Session = Depends(database.get_db)):
@@ -352,23 +375,51 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
         recargos = credito.recargos or 0.0
         monto_total_con_recargos = credito.monto_total + recargos
         
+        # Calcular fecha final estimada (MOVIDO ARRIBA para evitar error)
+        fecha_final = credito.fecha_inicio + timedelta(weeks=credito.semanas)
+
         # Cálculos de atraso
-        dias_transcurridos = (date.today() - credito.fecha_inicio).days
+        # Lógica de Días Hábiles (Lunes a Viernes)
+        # Usamos pandas para contar días hábiles exactos
+        dias_habiles_transcurridos = 0
+        if date.today() >= credito.fecha_inicio:
+            # bdate_range incluye start y end. Restamos 1 para obtener "transcurridos"
+            # Si hoy == inicio, len=1, transcurridos=0
+            dias_habiles_transcurridos = len(pd.bdate_range(start=credito.fecha_inicio, end=date.today())) - 1
         
-        # Calcular periodos transcurridos según frecuencia
-        periodos_transcurridos = 0
-        dias_por_periodo = 7 # Default Semanal
+        monto_esperado = 0
+        proximo_vencimiento_calculado = None
         
-        if credito.frecuencia == "Quincenal":
-            dias_por_periodo = 15
-        elif credito.frecuencia == "Mensual":
-            dias_por_periodo = 30
+        # Definir duración del periodo en días hábiles
+        dias_habiles_periodo = 5 # Semanal
+        cuota_periodo = credito.pago_semanal
+        
+        if credito.frecuencia == "Mensual":
+            dias_habiles_periodo = 20
+            cuota_periodo = credito.pago_semanal * 4
+        elif credito.frecuencia == "Quincenal":
+            dias_habiles_periodo = 10
+            cuota_periodo = credito.pago_semanal * 2
             
-        periodos_transcurridos = dias_transcurridos // dias_por_periodo
-        if periodos_transcurridos < 0: periodos_transcurridos = 0
+        # Calcular periodos completos transcurridos
+        periodos = dias_habiles_transcurridos // dias_habiles_periodo
+        if periodos < 0: periodos = 0
         
-        monto_esperado = periodos_transcurridos * credito.pago_semanal
-        if monto_esperado > monto_total_con_recargos:
+        monto_esperado = periodos * cuota_periodo
+        
+        # Calcular próximo vencimiento (estimado en calendario)
+        # Esto es aproximado para mostrar fecha, el cálculo monetario ya es exacto por hábiles
+        if credito.frecuencia == "Mensual":
+             proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(days=(periodos + 1) * 30)
+        elif credito.frecuencia == "Quincenal":
+             proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(days=(periodos + 1) * 15)
+        else:
+             proximo_vencimiento_calculado = credito.fecha_inicio + timedelta(weeks=periodos + 1)
+        
+        # Si ya pasó la fecha final, el monto esperado es el TOTAL (deuda vencida)
+        if date.today() > fecha_final:
+             monto_esperado = monto_total_con_recargos
+        elif monto_esperado > monto_total_con_recargos:
             monto_esperado = monto_total_con_recargos
             
         atraso = monto_esperado - total_pagado
@@ -391,10 +442,7 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
         
         proximo_vencimiento = None
         if estado == "Activo":
-            proximo_vencimiento = credito.fecha_inicio + timedelta(days=(periodos_transcurridos + 1) * dias_por_periodo)
-
-        # Calcular fecha final estimada
-        fecha_final = credito.fecha_inicio + timedelta(weeks=credito.semanas)
+            proximo_vencimiento = proximo_vencimiento_calculado
 
         # Cálculos de Días (Lógica solicitada: Acumulado * Días Hábiles / Cuota)
         # Definir días hábiles según frecuencia (Coincidente con lógica frontend)
@@ -412,11 +460,15 @@ def detalle_cliente(cliente_id: int, request: Request, db: Session = Depends(dat
             # Costo Diario = Cuota / Días Hábiles
             costo_diario = credito.pago_semanal / dias_habiles_periodo
 
-            # Días Abonados = (Total Pagado * Días Hábiles) / Cuota del Periodo
-            dias_abonados = (total_pagado * dias_habiles_periodo) / credito.pago_semanal
+            # CORRECCIÓN: Para calcular el TOTAL de días hábiles, siempre usamos la base semanal (5 días)
+            # porque 'pago_semanal' es el valor de 1 semana.
+            # Fórmula: (Total / Pago Semanal) * 5 Días Hábiles
+            dias_habiles_base = 5
+            cantidad_total_dias = (monto_total_con_recargos / credito.pago_semanal) * dias_habiles_base
             
-            # Cantidad Total de Días = (Monto Total * Días Hábiles) / Cuota del Periodo
-            cantidad_total_dias = (monto_total_con_recargos * dias_habiles_periodo) / credito.pago_semanal
+            # Días Abonados = (Total Pagado / Total Deuda) * Total Días
+            if monto_total_con_recargos > 0:
+                dias_abonados = (total_pagado / monto_total_con_recargos) * cantidad_total_dias
         else:
             # Fallback si no hay cuota definida
             cantidad_total_dias = (fecha_final - credito.fecha_inicio).days
